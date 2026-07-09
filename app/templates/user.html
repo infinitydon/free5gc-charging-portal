@@ -42,7 +42,7 @@
         <label for="ratingGroup">Bucket</label>
         <select id="ratingGroup" name="ratingGroup" required>
           {% for record in records %}
-          {% if record.ratingGroup is not none %}
+          {% if record.ratingGroup is defined and record.ratingGroup is not none and record.ratingGroup != "" %}
           <option value="{{ record.ratingGroup }}">RG {{ record.ratingGroup }} / {{ record.dnn or "-" }} / {{ record.quota | bytes }}</option>
           {% endif %}
           {% endfor %}

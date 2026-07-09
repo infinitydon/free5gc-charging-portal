@@ -64,7 +64,7 @@
         <label for="ueId">Subscriber / Bucket</label>
         <select id="ueId" name="ueId" required>
           {% for record in records %}
-          {% if record.ratingGroup is not none %}
+          {% if record.ratingGroup is defined and record.ratingGroup is not none and record.ratingGroup != "" %}
           <option value="{{ record.ueId }}" data-rating-group="{{ record.ratingGroup }}">{{ record.ueId }} / RG {{ record.ratingGroup }} / {{ record.dnn or "-" }}</option>
           {% endif %}
           {% endfor %}
@@ -122,7 +122,7 @@
             <td>{{ record.servingPlmnId or "-" }}</td>
             <td>{{ record.snssai or "-" }}</td>
             <td>{{ record.dnn or "-" }}</td>
-            <td class="number">{{ record.ratingGroup }}</td>
+            <td class="number">{{ record.ratingGroup if record.ratingGroup is defined else "-" }}</td>
             <td>{{ record.chargingMethod }}</td>
             <td class="quota">{{ record.quota | bytes }}</td>
             <td class="number">{{ record.unitCost or "-" }}</td>
