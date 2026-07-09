@@ -1,6 +1,6 @@
 [project]
 name = "free5gc-charging-portal"
-version = "0.1.0"
+version = "0.1.1"
 description = "Lab charging and top-up portal for free5GC CHF charging data"
 requires-python = ">=3.13"
 dependencies = [
@@ -26,3 +26,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.setuptools.package-data]
+app = ["templates/*.html"]

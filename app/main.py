@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
@@ -11,7 +12,7 @@ from .chf import notify_recharge
 from .repository import ChargingRepository
 from .settings import Settings, get_settings
 
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 
 
 class TopUpRequest(BaseModel):
@@ -33,7 +34,7 @@ def get_repository(settings: Annotated[Settings, Depends(get_settings)]) -> Char
     return ChargingRepository(settings.mongo_uri, settings.mongo_db)
 
 
-app = FastAPI(title="free5GC Charging Portal", version="0.1.0")
+app = FastAPI(title="free5GC Charging Portal", version="0.1.1")
 
 
 @app.get("/healthz")
