@@ -89,3 +89,73 @@ class ChargingRepository:
             if isinstance(doc.get("createdAt"), datetime):
                 doc["createdAt"] = doc["createdAt"].isoformat()
         return docs
+
+    def subscriber_summaries(self) -> list[dict[str, Any]]:
+        records = self.list_charging_records()
+        topup_docs = list(self.topups.find({}, {"_id": 0}).sort("createdAt", -1))
+        by_ue: dict[str, dict[str, Any]] = {}
+
+        for record in records:
+            ue_id = str(record.get("ueId") or "")
+            if not ue_id:
+                continue
+            summary = by_ue.setdefault(
+                ue_id,
+                {
+                    "ueId": ue_id,
+                    "recordCount": 0,
+                    "remainingBytes": 0,
+                    "topUpBytes": 0,
+                    "ratingGroups": set(),
+                    "dnns": set(),
+                    "snssais": set(),
+                    "methods": set(),
+                    "lastTopUpAt": "",
+                },
+            )
+            summary["recordCount"] += 1
+            summary["remainingBytes"] += int(record.get("quota") or 0)
+            if record.get("ratingGroup") is not None:
+                summary["ratingGroups"].add(str(record.get("ratingGroup")))
+            if record.get("dnn"):
+                summary["dnns"].add(str(record.get("dnn")))
+            if record.get("snssai"):
+                summary["snssais"].add(str(record.get("snssai")))
+            if record.get("chargingMethod"):
+                summary["methods"].add(str(record.get("chargingMethod")))
+
+        for topup in topup_docs:
+            ue_id = str(topup.get("ueId") or "")
+            if not ue_id:
+                continue
+            summary = by_ue.setdefault(
+                ue_id,
+                {
+                    "ueId": ue_id,
+                    "recordCount": 0,
+                    "remainingBytes": 0,
+                    "topUpBytes": 0,
+                    "ratingGroups": set(),
+                    "dnns": set(),
+                    "snssais": set(),
+                    "methods": set(),
+                    "lastTopUpAt": "",
+                },
+            )
+            summary["topUpBytes"] += int(topup.get("amountBytes") or 0)
+            if not summary["lastTopUpAt"]:
+                created_at = topup.get("createdAt")
+                summary["lastTopUpAt"] = created_at.isoformat() if isinstance(created_at, datetime) else str(created_at or "")
+
+        summaries = []
+        for summary in by_ue.values():
+            summaries.append(
+                {
+                    **summary,
+                    "ratingGroups": ", ".join(sorted(summary["ratingGroups"])) or "-",
+                    "dnns": ", ".join(sorted(summary["dnns"])) or "-",
+                    "snssais": ", ".join(sorted(summary["snssais"])) or "-",
+                    "methods": ", ".join(sorted(summary["methods"])) or "-",
+                }
+            )
+        return sorted(summaries, key=lambda item: item["ueId"])

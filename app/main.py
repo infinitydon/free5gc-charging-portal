@@ -42,7 +42,19 @@ def get_repository(settings: Annotated[Settings, Depends(get_settings)]) -> Char
     return ChargingRepository(settings.mongo_uri, settings.mongo_db)
 
 
-app = FastAPI(title="free5GC Charging Portal", version="0.2.0")
+app = FastAPI(title="free5GC Charging Portal", version="0.3.0")
+
+
+def format_bytes(value: int | str | None) -> str:
+    amount = float(value or 0)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if amount < 1024 or unit == "TB":
+            return f"{amount:.0f} {unit}" if unit == "B" else f"{amount:.2f} {unit}"
+        amount /= 1024
+    return f"{amount:.2f} TB"
+
+
+templates.env.filters["bytes"] = format_bytes
 
 
 def resolve_subscriber_from_request(request: Request, settings: Settings) -> str:
@@ -98,6 +110,7 @@ def index(
             },
         )
 
+    summaries = repo.subscriber_summaries()
     return templates.TemplateResponse(
         "operator.html",
         {
@@ -105,6 +118,11 @@ def index(
             "title": settings.portal_title,
             "records": repo.list_charging_records(),
             "topups": repo.list_topups(15),
+            "summaries": summaries,
+            "subscriber_count": len(summaries),
+            "record_count": len(repo.list_charging_records()),
+            "total_remaining_bytes": sum(int(item.get("remainingBytes") or 0) for item in summaries),
+            "total_topup_bytes": sum(int(item.get("topUpBytes") or 0) for item in summaries),
             "self_topup": settings.end_user_self_topup,
         },
     )
