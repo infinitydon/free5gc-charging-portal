@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }}</title>
+  <style>
+    :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; background: #f7f8fb; color: #20242c; }
+    main { max-width: 1180px; margin: 0 auto; padding: 32px 20px 48px; }
+    header { display: flex; justify-content: space-between; gap: 20px; align-items: center; margin-bottom: 24px; }
+    h1 { margin: 0; font-size: 28px; }
+    h2 { font-size: 18px; margin: 0 0 12px; }
+    .grid { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: 18px; align-items: start; }
+    .panel { background: #fff; border: 1px solid #dce1ea; border-radius: 8px; padding: 18px; box-shadow: 0 1px 2px rgba(20, 28, 40, .04); }
+    label { display: block; font-size: 13px; font-weight: 650; margin: 12px 0 6px; }
+    input, select { width: 100%; box-sizing: border-box; border: 1px solid #c9d0db; border-radius: 6px; padding: 10px 11px; font-size: 14px; background: #fff; }
+    button { width: 100%; border: 0; border-radius: 6px; background: #1769aa; color: #fff; padding: 11px 14px; margin-top: 16px; font-weight: 750; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border-bottom: 1px solid #e6eaf0; padding: 9px 8px; text-align: left; vertical-align: top; }
+    th { color: #566070; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+    .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+    .tab { border: 1px solid #c9d0db; border-radius: 6px; padding: 9px; text-align: center; font-weight: 700; background: #f9fafc; }
+    .muted { color: #667085; font-size: 13px; }
+    .quota { font-variant-numeric: tabular-nums; }
+    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } header { display: block; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>{{ title }}</h1>
+      <div class="muted">Lab top-up wrapper for free5GC online charging quota</div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Top Up Credit</h2>
+      <div class="tabs">
+        <div class="tab">Operator</div>
+        {% if self_topup %}<div class="tab">Self-Service</div>{% endif %}
+      </div>
+      <form method="post" action="/topup/form">
+        <label for="source">Mode</label>
+        <select id="source" name="source">
+          <option value="operator">Operator top-up</option>
+          {% if self_topup %}<option value="self-service">End-user fictitious top-up</option>{% endif %}
+        </select>
+        <label for="ueId">Subscriber</label>
+        <select id="ueId" name="ueId" required>
+          {% for record in records %}
+          <option value="{{ record.ueId }}">{{ record.ueId }} / RG {{ record.ratingGroup }}</option>
+          {% endfor %}
+        </select>
+        <label for="ratingGroup">Rating Group</label>
+        <input id="ratingGroup" name="ratingGroup" type="number" min="0" value="1" required>
+        <label for="amountMb">Amount, MB</label>
+        <input id="amountMb" name="amountMb" type="number" min="1" value="100" required>
+        <label for="actor">Actor</label>
+        <input id="actor" name="actor" value="operator" required>
+        <label for="pin">Operator PIN</label>
+        <input id="pin" name="pin" type="password" placeholder="Required for operator mode">
+        <button type="submit">Apply Top-Up</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Charging Records</h2>
+      <table>
+        <thead><tr><th>UE</th><th>RG</th><th>Method</th><th>DNN</th><th>Quota</th></tr></thead>
+        <tbody>
+        {% for record in records %}
+          <tr>
+            <td>{{ record.ueId }}</td>
+            <td>{{ record.ratingGroup }}</td>
+            <td>{{ record.chargingMethod }}</td>
+            <td>{{ record.dnn }}</td>
+            <td class="quota">{{ record.quota }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <section class="panel" style="margin-top: 18px;">
+    <h2>Recent Top-Ups</h2>
+    <table>
+      <thead><tr><th>Time</th><th>UE</th><th>RG</th><th>Amount</th><th>Old</th><th>New</th><th>Source</th><th>Actor</th></tr></thead>
+      <tbody>
+      {% for item in topups %}
+        <tr>
+          <td>{{ item.createdAt }}</td>
+          <td>{{ item.ueId }}</td>
+          <td>{{ item.ratingGroup }}</td>
+          <td class="quota">{{ item.amountBytes }}</td>
+          <td class="quota">{{ item.oldQuota }}</td>
+          <td class="quota">{{ item.newQuota }}</td>
+          <td>{{ item.source }}</td>
+          <td>{{ item.actor }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,28 @@
+[project]
+name = "free5gc-charging-portal"
+version = "0.1.0"
+description = "Lab charging and top-up portal for free5GC CHF charging data"
+requires-python = ">=3.13"
+dependencies = [
+  "fastapi==0.115.14",
+  "httpx==0.28.1",
+  "jinja2==3.1.6",
+  "pydantic==2.11.7",
+  "pydantic-settings==2.10.1",
+  "pymongo==4.13.2",
+  "python-multipart==0.0.20",
+  "uvicorn[standard]==0.35.0",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest==8.4.1",
+  "mongomock==4.3.0",
+]
+
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
