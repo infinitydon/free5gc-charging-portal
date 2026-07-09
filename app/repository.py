@@ -24,10 +24,11 @@ class ChargingRepository:
     def topups(self) -> Collection[Any]:
         return self.db[TOPUP_LEDGER_COLL]
 
-    def list_charging_records(self) -> list[dict[str, Any]]:
+    def list_charging_records(self, ue_id: str | None = None) -> list[dict[str, Any]]:
+        query = {"ueId": ue_id} if ue_id else {}
         records = list(
             self.charging_data.find(
-                {},
+                query,
                 {
                     "_id": 0,
                     "ueId": 1,

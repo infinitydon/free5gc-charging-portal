@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from ipaddress import ip_address, ip_network
 from pathlib import Path
 from typing import Annotated
 
@@ -23,6 +25,12 @@ class TopUpRequest(BaseModel):
     pin: str = Field(default="")
 
 
+class SelfTopUpRequest(BaseModel):
+    rating_group: int = Field(alias="ratingGroup", ge=0)
+    amount_bytes: int = Field(alias="amountBytes", gt=0)
+    actor: str = Field(default="self-service", min_length=1)
+
+
 class TopUpResponse(BaseModel):
     ok: bool
     ledger: dict
@@ -34,7 +42,36 @@ def get_repository(settings: Annotated[Settings, Depends(get_settings)]) -> Char
     return ChargingRepository(settings.mongo_uri, settings.mongo_db)
 
 
-app = FastAPI(title="free5GC Charging Portal", version="0.1.1")
+app = FastAPI(title="free5GC Charging Portal", version="0.2.0")
+
+
+def resolve_subscriber_from_request(request: Request, settings: Settings) -> str:
+    if settings.trusted_subscriber_header_enabled:
+        header_value = request.headers.get(settings.trusted_subscriber_header)
+        if header_value and header_value.strip():
+            return header_value.strip()
+
+    source_ip = request.client.host if request.client else ""
+    if source_ip:
+        try:
+            bindings = json.loads(settings.subscriber_bindings_json or "{}")
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=500, detail="invalid subscriber binding configuration") from exc
+        for match, supi in bindings.items():
+            if not supi:
+                continue
+            try:
+                if "/" in match and ip_address(source_ip) in ip_network(match, strict=False):
+                    return str(supi)
+                if source_ip == match:
+                    return str(supi)
+            except ValueError:
+                continue
+
+    if settings.default_subscriber_supi:
+        return settings.default_subscriber_supi
+
+    raise HTTPException(status_code=403, detail="subscriber identity could not be resolved")
 
 
 @app.get("/healthz")
@@ -48,8 +85,21 @@ def index(
     settings: Annotated[Settings, Depends(get_settings)],
     repo: Annotated[ChargingRepository, Depends(get_repository)],
 ) -> HTMLResponse:
+    if settings.portal_mode.lower() == "user":
+        ue_id = resolve_subscriber_from_request(request, settings)
+        return templates.TemplateResponse(
+            "user.html",
+            {
+                "request": request,
+                "title": settings.portal_title,
+                "ue_id": ue_id,
+                "records": repo.list_charging_records(ue_id),
+                "topups": [doc for doc in repo.list_topups(15) if doc.get("ueId") == ue_id],
+            },
+        )
+
     return templates.TemplateResponse(
-        "index.html",
+        "operator.html",
         {
             "request": request,
             "title": settings.portal_title,
@@ -63,6 +113,16 @@ def index(
 @app.get("/api/charging-records")
 def charging_records(repo: Annotated[ChargingRepository, Depends(get_repository)]) -> list[dict]:
     return repo.list_charging_records()
+
+
+@app.get("/api/me")
+def me(
+    request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
+    repo: Annotated[ChargingRepository, Depends(get_repository)],
+) -> dict:
+    ue_id = resolve_subscriber_from_request(request, settings)
+    return {"ueId": ue_id, "chargingRecords": repo.list_charging_records(ue_id)}
 
 
 @app.get("/api/topups")
@@ -116,24 +176,42 @@ async def operator_topup(
 
 @app.post("/api/topups/self", response_model=TopUpResponse)
 async def self_topup(
-    payload: TopUpRequest,
+    request: Request,
+    payload: SelfTopUpRequest,
     settings: Annotated[Settings, Depends(get_settings)],
     repo: Annotated[ChargingRepository, Depends(get_repository)],
 ) -> TopUpResponse:
-    return await apply_topup(payload, "self-service", settings, repo)
+    ue_id = resolve_subscriber_from_request(request, settings)
+    return await apply_topup(
+        TopUpRequest(
+            ueId=ue_id,
+            ratingGroup=payload.rating_group,
+            amountBytes=payload.amount_bytes,
+            actor=payload.actor,
+            pin="",
+        ),
+        "self-service",
+        settings,
+        repo,
+    )
 
 
 @app.post("/topup/form")
 async def topup_form(
+    request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
     repo: Annotated[ChargingRepository, Depends(get_repository)],
-    ue_id: Annotated[str, Form(alias="ueId")],
     rating_group: Annotated[int, Form(alias="ratingGroup")],
     amount_mb: Annotated[int, Form(alias="amountMb")],
     actor: Annotated[str, Form()],
+    ue_id: Annotated[str, Form(alias="ueId")] = "",
     pin: Annotated[str, Form()] = "",
     source: Annotated[str, Form()] = "operator",
 ) -> RedirectResponse:
+    if source == "self-service":
+        ue_id = resolve_subscriber_from_request(request, settings)
+        pin = ""
+
     payload = TopUpRequest(
         ueId=ue_id,
         ratingGroup=rating_group,

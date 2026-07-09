@@ -13,8 +13,13 @@ class Settings(BaseSettings):
     chf_notify_enabled: bool = Field(default=True, alias="CHF_NOTIFY_ENABLED")
     chf_bearer_token: str = Field(default="", alias="CHF_BEARER_TOKEN")
     portal_title: str = Field(default="free5GC Charging Portal", alias="PORTAL_TITLE")
+    portal_mode: str = Field(default="operator", alias="PORTAL_MODE")
     operator_pin: str = Field(default="admin123", alias="OPERATOR_PIN")
     end_user_self_topup: bool = Field(default=True, alias="END_USER_SELF_TOPUP")
+    trusted_subscriber_header_enabled: bool = Field(default=False, alias="TRUSTED_SUBSCRIBER_HEADER_ENABLED")
+    trusted_subscriber_header: str = Field(default="x-subscriber-supi", alias="TRUSTED_SUBSCRIBER_HEADER")
+    subscriber_bindings_json: str = Field(default="{}", alias="SUBSCRIBER_BINDINGS_JSON")
+    default_subscriber_supi: str = Field(default="", alias="DEFAULT_SUBSCRIBER_SUPI")
 
 
 @lru_cache

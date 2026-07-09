@@ -22,8 +22,13 @@ This is intended for demos and lab validation. It is not a production billing sy
 | `CHF_NOTIFY_ENABLED` | `true` | Send the CHF recharge notification after Mongo update. |
 | `CHF_BEARER_TOKEN` | empty | Optional bearer token for CHF notification. |
 | `PORTAL_TITLE` | `free5GC Charging Portal` | UI title. |
+| `PORTAL_MODE` | `operator` | `operator` shows all subscribers; `user` shows only the detected subscriber. |
 | `OPERATOR_PIN` | `admin123` | Demo operator PIN for operator top-ups. |
 | `END_USER_SELF_TOPUP` | `true` | Allow self-service fictitious top-ups. |
+| `TRUSTED_SUBSCRIBER_HEADER_ENABLED` | `false` | Allow a trusted ingress/proxy to pass the subscriber SUPI in a header. |
+| `TRUSTED_SUBSCRIBER_HEADER` | `x-subscriber-supi` | Header name used when trusted subscriber header mode is enabled. |
+| `SUBSCRIBER_BINDINGS_JSON` | `{}` | JSON map of source IP/CIDR to SUPI, for example `{"10.60.0.0/16":"imsi-208930000000001"}`. |
+| `DEFAULT_SUBSCRIBER_SUPI` | empty | Optional lab-only fallback SUPI when no header or source-IP binding matches. |
 
 ## API
 
@@ -46,5 +51,10 @@ Self top-up:
 ```bash
 curl -X POST http://localhost:8080/api/topups/self \
   -H 'content-type: application/json' \
-  -d '{"ueId":"imsi-208930000000003","ratingGroup":1,"amountBytes":10485760,"actor":"demo-user"}'
+  -H 'x-subscriber-supi: imsi-208930000000003' \
+  -d '{"ratingGroup":1,"amountBytes":10485760,"actor":"demo-user"}'
 ```
+
+The self-service endpoint intentionally ignores browser-supplied subscriber IDs.
+Run it behind a trusted identity-aware proxy or use source-IP/CIDR bindings for
+lab UE traffic.
