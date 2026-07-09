@@ -64,7 +64,9 @@
         <label for="ueId">Subscriber / Bucket</label>
         <select id="ueId" name="ueId" required>
           {% for record in records %}
-          <option value="{{ record.ueId }}">{{ record.ueId }} / RG {{ record.ratingGroup }} / {{ record.dnn or "-" }}</option>
+          {% if record.ratingGroup is not none %}
+          <option value="{{ record.ueId }}" data-rating-group="{{ record.ratingGroup }}">{{ record.ueId }} / RG {{ record.ratingGroup }} / {{ record.dnn or "-" }}</option>
+          {% endif %}
           {% endfor %}
         </select>
         <label for="ratingGroup">Rating Group</label>
@@ -155,5 +157,17 @@
     </div>
   </section>
 </main>
+<script>
+  const bucketSelect = document.getElementById("ueId");
+  const ratingGroupInput = document.getElementById("ratingGroup");
+  function syncBucket() {
+    const selected = bucketSelect.options[bucketSelect.selectedIndex];
+    if (selected && selected.dataset.ratingGroup) {
+      ratingGroupInput.value = selected.dataset.ratingGroup;
+    }
+  }
+  bucketSelect.addEventListener("change", syncBucket);
+  syncBucket();
+</script>
 </body>
 </html>
