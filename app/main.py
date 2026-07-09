@@ -4,6 +4,7 @@ import json
 from ipaddress import ip_address, ip_network
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import urlencode
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -42,7 +43,7 @@ def get_repository(settings: Annotated[Settings, Depends(get_settings)]) -> Char
     return ChargingRepository(settings.mongo_uri, settings.mongo_db)
 
 
-app = FastAPI(title="free5GC Charging Portal", version="0.3.2")
+app = FastAPI(title="free5GC Charging Portal", version="0.3.3")
 
 
 def format_bytes(value: int | str | None) -> str:
@@ -55,6 +56,14 @@ def format_bytes(value: int | str | None) -> str:
 
 
 templates.env.filters["bytes"] = format_bytes
+
+
+def flash_from_request(request: Request) -> dict[str, str] | None:
+    status = request.query_params.get("status", "")
+    message = request.query_params.get("message", "")
+    if not status or not message:
+        return None
+    return {"status": status, "message": message}
 
 
 def resolve_subscriber_from_request(request: Request, settings: Settings) -> str:
@@ -105,25 +114,28 @@ def index(
                 "request": request,
                 "title": settings.portal_title,
                 "ue_id": ue_id,
-                "records": repo.list_charging_records(ue_id),
+                "records": repo.list_charging_records(ue_id, actionable_only=True),
                 "topups": [doc for doc in repo.list_topups(15) if doc.get("ueId") == ue_id],
+                "flash": flash_from_request(request),
             },
         )
 
     summaries = repo.subscriber_summaries()
+    records = repo.list_charging_records(actionable_only=True)
     return templates.TemplateResponse(
         "operator.html",
         {
             "request": request,
             "title": settings.portal_title,
-            "records": repo.list_charging_records(),
+            "records": records,
             "topups": repo.list_topups(15),
             "summaries": summaries,
             "subscriber_count": len(summaries),
-            "record_count": len(repo.list_charging_records()),
+            "record_count": len(records),
             "total_remaining_bytes": sum(int(item.get("remainingBytes") or 0) for item in summaries),
             "total_topup_bytes": sum(int(item.get("topUpBytes") or 0) for item in summaries),
             "self_topup": settings.end_user_self_topup,
+            "flash": flash_from_request(request),
         },
     )
 
@@ -237,5 +249,23 @@ async def topup_form(
         actor=actor,
         pin=pin,
     )
-    await apply_topup(payload, source, settings, repo)
-    return RedirectResponse("/", status_code=303)
+    try:
+        result = await apply_topup(payload, source, settings, repo)
+    except HTTPException as exc:
+        detail = str(exc.detail)
+        return RedirectResponse(
+            "/?" + urlencode({"status": "error", "message": detail}),
+            status_code=303,
+        )
+
+    message = (
+        f"Top-up applied: {format_bytes(payload.amount_bytes)} added to {payload.ue_id} "
+        f"RG {payload.rating_group}. New quota: {format_bytes(result.ledger.get('newQuota'))}."
+    )
+    status = "success" if result.chf_notified else "warning"
+    if not result.chf_notified:
+        message = f"{message} {result.message}"
+    return RedirectResponse(
+        "/?" + urlencode({"status": status, "message": message}),
+        status_code=303,
+    )

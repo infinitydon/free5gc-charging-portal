@@ -29,6 +29,10 @@
     tbody tr:hover { background: #f8fafc; }
     .quota, .number { font-variant-numeric: tabular-nums; white-space: nowrap; }
     .status { display: inline-block; border-radius: 999px; padding: 3px 8px; background: #e8f5ee; color: #17663a; font-weight: 760; font-size: 11px; }
+    .flash { border-radius: 8px; padding: 11px 13px; margin-bottom: 14px; font-size: 13px; font-weight: 680; border: 1px solid #cfe4ff; background: #eef6ff; color: #18466c; }
+    .flash.success { border-color: #b7e4c7; background: #edf9f1; color: #17663a; }
+    .flash.warning { border-color: #ffe1a6; background: #fff8e6; color: #7a4b00; }
+    .flash.error { border-color: #ffc9c9; background: #fff1f1; color: #9f1d1d; }
     .section { margin-top: 16px; }
     .scroll { overflow-x: auto; }
     @media (max-width: 980px) {
@@ -56,6 +60,10 @@
     <div class="metric"><span>Top-Ups Applied</span><strong>{{ total_topup_bytes | bytes }}</strong></div>
   </section>
 
+  {% if flash %}
+  <div class="flash {{ flash.status }}">{{ flash.message }}</div>
+  {% endif %}
+
   <div class="layout">
     <section class="panel">
       <h2>Manual Adjustment</h2>
@@ -64,9 +72,7 @@
         <label for="ueId">Subscriber / Bucket</label>
         <select id="ueId" name="ueId" required>
           {% for record in records %}
-          {% if record.ratingGroup is defined and record.ratingGroup is not none and record.ratingGroup != "" %}
           <option value="{{ record.ueId }}" data-rating-group="{{ record.ratingGroup }}">{{ record.ueId }} / RG {{ record.ratingGroup }} / {{ record.dnn or "-" }}</option>
-          {% endif %}
           {% endfor %}
         </select>
         <label for="ratingGroup">Rating Group</label>

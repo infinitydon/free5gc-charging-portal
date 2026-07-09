@@ -24,8 +24,10 @@ class ChargingRepository:
     def topups(self) -> Collection[Any]:
         return self.db[TOPUP_LEDGER_COLL]
 
-    def list_charging_records(self, ue_id: str | None = None) -> list[dict[str, Any]]:
+    def list_charging_records(self, ue_id: str | None = None, actionable_only: bool = False) -> list[dict[str, Any]]:
         query = {"ueId": ue_id} if ue_id else {}
+        if actionable_only:
+            query["ratingGroup"] = {"$exists": True, "$ne": None}
         records = list(
             self.charging_data.find(
                 query,
@@ -91,7 +93,7 @@ class ChargingRepository:
         return docs
 
     def subscriber_summaries(self) -> list[dict[str, Any]]:
-        records = self.list_charging_records()
+        records = self.list_charging_records(actionable_only=True)
         topup_docs = list(self.topups.find({}, {"_id": 0}).sort("createdAt", -1))
         by_ue: dict[str, dict[str, Any]] = {}
 

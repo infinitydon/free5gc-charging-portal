@@ -16,7 +16,7 @@ async def notify_recharge(
         headers["authorization"] = f"Bearer {bearer_token}"
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=2.0) as client:
             response = await client.put(url, params={"ratingGroup": rating_group}, headers=headers)
     except httpx.HTTPError as exc:
         return False, f"CHF notification failed: {exc}"
