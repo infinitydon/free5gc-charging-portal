@@ -97,6 +97,19 @@ class ChargingRepository:
         if updated is None:
             raise LookupError(f"charging record disappeared for {ue_id} ratingGroup {rating_group}")
 
+        if "ratingGroup" in record:
+            base_query = {
+                "ueId": ue_id,
+                "ratingGroup": {"$exists": False},
+                "snssai": record.get("snssai", ""),
+                "dnn": record.get("dnn", ""),
+                "filter": record.get("filter", ""),
+            }
+            base_record = self.charging_data.find_one(base_query)
+            if base_record is not None:
+                base_quota = int(base_record.get("quota") or 0) + amount_bytes
+                self.charging_data.update_one(base_query, {"$set": {"quota": str(base_quota)}})
+
         ledger = {
             "ueId": ue_id,
             "ratingGroup": rating_group,
