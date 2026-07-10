@@ -1,6 +1,6 @@
 [project]
 name = "free5gc-charging-portal"
-version = "0.3.10"
+version = "0.3.12"
 description = "Lab charging and top-up portal for free5GC CHF charging data"
 requires-python = ">=3.13"
 dependencies = [

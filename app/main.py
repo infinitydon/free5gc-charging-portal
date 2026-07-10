@@ -50,7 +50,7 @@ def get_repository(settings: Annotated[Settings, Depends(get_settings)]) -> Char
     return ChargingRepository(settings.mongo_uri, settings.mongo_db)
 
 
-app = FastAPI(title="free5GC Charging Portal", version="0.3.10")
+app = FastAPI(title="free5GC Charging Portal", version="0.3.12")
 
 
 def format_bytes(value: int | str | None) -> str:
@@ -163,7 +163,11 @@ def me(
     repo: Annotated[ChargingRepository, Depends(get_repository)],
 ) -> dict:
     ue_id = resolve_subscriber_from_request(request, settings)
-    return {"ueId": ue_id, "chargingRecords": repo.list_charging_records(ue_id)}
+    return {
+        "ueId": ue_id,
+        "account": repo.user_account(ue_id),
+        "chargingRecords": repo.list_charging_records(ue_id),
+    }
 
 
 @app.get("/api/topups")
@@ -174,6 +178,19 @@ def topups(repo: Annotated[ChargingRepository, Depends(get_repository)], limit: 
 @app.get("/api/usage")
 def usage(repo: Annotated[ChargingRepository, Depends(get_repository)], limit: int = 50) -> list[dict]:
     return repo.list_usage(limit)
+
+
+@app.get("/api/operator-summary")
+def operator_summary(repo: Annotated[ChargingRepository, Depends(get_repository)]) -> dict:
+    summaries = repo.subscriber_summaries()
+    records = repo.list_charging_records(actionable_only=True)
+    return {
+        "subscriberCount": len(summaries),
+        "recordCount": len(records),
+        "totalRemainingBytes": sum(int(item.get("remainingBytes") or 0) for item in summaries),
+        "totalTopUpBytes": sum(int(item.get("topUpBytes") or 0) for item in summaries),
+        "totalUsageBytes": sum(int(item.get("usageBytes") or 0) for item in summaries),
+    }
 
 
 @app.post("/api/usage")

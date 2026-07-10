@@ -31,6 +31,7 @@
     label.custom { display: block; font-size: 13px; font-weight: 700; margin: 14px 0 6px; color: #344054; }
     input[type=number] { width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 7px; padding: 10px 11px; font-size: 14px; background: #fff; }
     button { width: 100%; border: 0; border-radius: 7px; background: #1769aa; color: #fff; padding: 12px 14px; margin-top: 15px; font-weight: 780; cursor: pointer; }
+    .refresh { width: auto; margin-top: 0; padding: 9px 12px; background: #ffffff; color: #1769aa; border: 1px solid #b8d4ea; }
     button:disabled { background: #98a2b3; cursor: not-allowed; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th, td { border-bottom: 1px solid #e6eaf0; padding: 10px 8px; text-align: left; vertical-align: top; }
@@ -57,14 +58,15 @@
       <div class="muted">Manage your mobile data balance and add data when you need it.</div>
     </div>
     <div class="subscriber">Subscriber ID<strong>{{ ue_id }}</strong></div>
+    <button class="refresh" type="button" onclick="refreshAccount()">Refresh</button>
   </header>
 
   <section class="hero">
     <div class="summary">
       <div class="stat plan"><span>Subscription</span><strong>{{ account.subscriptionName }}</strong><div class="muted">Active data service</div></div>
-      <div class="stat"><span>Data Left</span><strong>{{ account.remainingBytes | bytes }}</strong></div>
-      <div class="stat"><span>Used</span><strong>{{ account.usedBytes | bytes }}</strong></div>
-      <div class="stat"><span>Added</span><strong>{{ account.topUpBytes | bytes }}</strong></div>
+      <div class="stat"><span>Data Left</span><strong id="data-left">{{ account.remainingBytes | bytes }}</strong></div>
+      <div class="stat"><span>Used</span><strong id="data-used">{{ account.usedBytes | bytes }}</strong></div>
+      <div class="stat"><span>Added</span><strong id="data-added">{{ account.topUpBytes | bytes }}</strong></div>
     </div>
   </section>
 
@@ -113,5 +115,23 @@
     </section>
   </div>
 </main>
+<script>
+  function formatBytes(value) {
+    let amount = Number(value || 0);
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    for (const unit of units) {
+      if (amount < 1024 || unit === "TB") return unit === "B" ? `${Math.round(amount)} ${unit}` : `${amount.toFixed(2)} ${unit}`;
+      amount /= 1024;
+    }
+  }
+  async function refreshAccount() {
+    const response = await fetch("/api/me", {cache: "no-store"});
+    if (!response.ok) return;
+    const account = (await response.json()).account;
+    document.getElementById("data-left").textContent = formatBytes(account.remainingBytes);
+    document.getElementById("data-used").textContent = formatBytes(account.usedBytes);
+    document.getElementById("data-added").textContent = formatBytes(account.topUpBytes);
+  }
+</script>
 </body>
 </html>
