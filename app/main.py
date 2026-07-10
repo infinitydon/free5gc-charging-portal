@@ -39,11 +39,18 @@ class TopUpResponse(BaseModel):
     message: str
 
 
+class UsageReportRequest(BaseModel):
+    ue_id: str = Field(alias="ueId", min_length=5)
+    rx_bytes: int = Field(alias="rxBytes", ge=0)
+    tx_bytes: int = Field(alias="txBytes", ge=0)
+    source: str = Field(default="ue-tunnel", min_length=1)
+
+
 def get_repository(settings: Annotated[Settings, Depends(get_settings)]) -> ChargingRepository:
     return ChargingRepository(settings.mongo_uri, settings.mongo_db)
 
 
-app = FastAPI(title="free5GC Charging Portal", version="0.3.3")
+app = FastAPI(title="free5GC Charging Portal", version="0.3.7")
 
 
 def format_bytes(value: int | str | None) -> str:
@@ -116,6 +123,7 @@ def index(
                 "ue_id": ue_id,
                 "records": repo.list_charging_records(ue_id, actionable_only=True),
                 "topups": [doc for doc in repo.list_topups(15) if doc.get("ueId") == ue_id],
+                "usage": repo.list_usage(15, ue_id),
                 "flash": flash_from_request(request),
             },
         )
@@ -129,11 +137,13 @@ def index(
             "title": settings.portal_title,
             "records": records,
             "topups": repo.list_topups(15),
+            "usage": repo.list_usage(15),
             "summaries": summaries,
             "subscriber_count": len(summaries),
             "record_count": len(records),
             "total_remaining_bytes": sum(int(item.get("remainingBytes") or 0) for item in summaries),
             "total_topup_bytes": sum(int(item.get("topUpBytes") or 0) for item in summaries),
+            "total_usage_bytes": sum(int(item.get("usageBytes") or 0) for item in summaries),
             "self_topup": settings.end_user_self_topup,
             "flash": flash_from_request(request),
         },
@@ -158,6 +168,24 @@ def me(
 @app.get("/api/topups")
 def topups(repo: Annotated[ChargingRepository, Depends(get_repository)], limit: int = 50) -> list[dict]:
     return repo.list_topups(limit)
+
+
+@app.get("/api/usage")
+def usage(repo: Annotated[ChargingRepository, Depends(get_repository)], limit: int = 50) -> list[dict]:
+    return repo.list_usage(limit)
+
+
+@app.post("/api/usage")
+def usage_report(payload: UsageReportRequest, repo: Annotated[ChargingRepository, Depends(get_repository)]) -> dict:
+    return {
+        "ok": True,
+        "ledger": repo.record_usage(
+            ue_id=payload.ue_id,
+            rx_bytes=payload.rx_bytes,
+            tx_bytes=payload.tx_bytes,
+            source=payload.source,
+        ),
+    }
 
 
 async def apply_topup(

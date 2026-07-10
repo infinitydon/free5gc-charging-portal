@@ -50,7 +50,7 @@
         <label for="ratingGroup">Bucket</label>
         <select id="ratingGroup" name="ratingGroup" required>
           {% for record in records %}
-          <option value="{{ record.ratingGroup }}">RG {{ record.ratingGroup }} / {{ record.dnn or "-" }} / {{ record.quota | bytes }}</option>
+          <option value="{{ record.ratingGroup }}">RG {{ record.ratingGroup }} / {{ record.chargingMethod }} / {{ record.dnn or "-" }} / {{ record.quota | bytes }}</option>
           {% endfor %}
         </select>
         <label for="amountMb">Amount, MB</label>
@@ -79,6 +79,18 @@
       <tbody>
       {% for item in topups %}
         <tr><td>{{ item.createdAt }}</td><td>{{ item.ratingGroup }}</td><td class="quota">{{ item.amountBytes | bytes }}</td><td class="quota">{{ item.oldQuota | bytes }}</td><td class="quota">{{ item.newQuota | bytes }}</td><td>{{ item.source }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel" style="margin-top: 18px;">
+    <h2>My Observed Usage</h2>
+    <table>
+      <thead><tr><th>Time</th><th>RG</th><th>Delta</th><th>New Quota</th><th>Source</th></tr></thead>
+      <tbody>
+      {% for item in usage %}
+        <tr><td>{{ item.createdAt }}</td><td>{{ item.ratingGroup }}</td><td class="quota">{{ item.deltaBytes | bytes }}</td><td class="quota">{{ item.newQuota | bytes }}</td><td>{{ item.source }}</td></tr>
       {% endfor %}
       </tbody>
     </table>

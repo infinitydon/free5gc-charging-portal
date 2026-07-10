@@ -13,7 +13,7 @@
     h2 { font-size: 15px; margin: 0 0 12px; font-weight: 760; }
     .muted { color: #667085; font-size: 13px; }
     .badge { display: inline-flex; align-items: center; border: 1px solid #cfd7e3; border-radius: 999px; padding: 5px 9px; background: #fff; color: #46505f; font-size: 12px; font-weight: 680; }
-    .metrics { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .metrics { display: grid; grid-template-columns: repeat(5, minmax(145px, 1fr)); gap: 12px; margin-bottom: 16px; }
     .metric, .panel { background: #fff; border: 1px solid #dce2ea; border-radius: 8px; box-shadow: 0 1px 2px rgba(20, 28, 40, .04); }
     .metric { padding: 14px 15px; }
     .metric span { display: block; color: #667085; font-size: 12px; font-weight: 680; text-transform: uppercase; }
@@ -56,8 +56,9 @@
   <section class="metrics" aria-label="Charging summary">
     <div class="metric"><span>Subscribers</span><strong>{{ subscriber_count }}</strong></div>
     <div class="metric"><span>Charging Buckets</span><strong>{{ record_count }}</strong></div>
-    <div class="metric"><span>Remaining Data</span><strong>{{ total_remaining_bytes | bytes }}</strong></div>
+    <div class="metric"><span>Configured Quota</span><strong>{{ total_remaining_bytes | bytes }}</strong></div>
     <div class="metric"><span>Top-Ups Applied</span><strong>{{ total_topup_bytes | bytes }}</strong></div>
+    <div class="metric"><span>Observed Usage</span><strong>{{ total_usage_bytes | bytes }}</strong></div>
   </section>
 
   {% if flash %}
@@ -93,7 +94,7 @@
         <table>
           <thead>
             <tr>
-              <th>Subscriber</th><th>Status</th><th>DNN</th><th>Slice</th><th>RG</th><th>Buckets</th><th>Remaining</th><th>Top-Ups</th><th>Last Top-Up</th>
+              <th>Subscriber</th><th>Status</th><th>DNN</th><th>Slice</th><th>RG</th><th>Buckets</th><th>Quota</th><th>Top-Ups</th><th>Usage</th><th>Last Top-Up</th>
             </tr>
           </thead>
           <tbody>
@@ -107,6 +108,7 @@
               <td class="number">{{ item.recordCount }}</td>
               <td class="quota">{{ item.remainingBytes | bytes }}</td>
               <td class="quota">{{ item.topUpBytes | bytes }}</td>
+              <td class="quota">{{ item.usageBytes | bytes }}</td>
               <td>{{ item.lastTopUpAt or "-" }}</td>
             </tr>
           {% endfor %}
@@ -120,7 +122,7 @@
     <h2>Charging Buckets</h2>
     <div class="scroll">
       <table>
-        <thead><tr><th>Subscriber</th><th>PLMN</th><th>Slice</th><th>DNN</th><th>RG</th><th>Method</th><th>Remaining</th><th>Unit Cost</th><th>Filter</th></tr></thead>
+        <thead><tr><th>Subscriber</th><th>PLMN</th><th>Slice</th><th>DNN</th><th>RG</th><th>Method</th><th>Quota</th><th>Unit Cost</th><th>Filter</th></tr></thead>
         <tbody>
         {% for record in records %}
           <tr>
@@ -156,6 +158,30 @@
             <td class="quota">{{ item.newQuota | bytes }}</td>
             <td>{{ item.source }}</td>
             <td>{{ item.actor }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel section">
+    <h2>Observed Usage</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Time</th><th>Subscriber</th><th>RG</th><th>Delta</th><th>RX</th><th>TX</th><th>Previous</th><th>New</th><th>Source</th></tr></thead>
+        <tbody>
+        {% for item in usage %}
+          <tr>
+            <td>{{ item.createdAt }}</td>
+            <td>{{ item.ueId }}</td>
+            <td class="number">{{ item.ratingGroup }}</td>
+            <td class="quota">{{ item.deltaBytes | bytes }}</td>
+            <td class="quota">{{ item.rxBytes | bytes }}</td>
+            <td class="quota">{{ item.txBytes | bytes }}</td>
+            <td class="quota">{{ item.oldQuota | bytes }}</td>
+            <td class="quota">{{ item.newQuota | bytes }}</td>
+            <td>{{ item.source }}</td>
           </tr>
         {% endfor %}
         </tbody>

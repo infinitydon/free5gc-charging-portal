@@ -41,3 +41,77 @@ def test_top_up_missing_record_raises_lookup_error(monkeypatch):
         assert "charging record not found" in str(exc)
     else:
         raise AssertionError("expected LookupError")
+
+
+def test_charging_records_list_newest_online_buckets_first(monkeypatch):
+    monkeypatch.setattr("app.repository.MongoClient", mongomock.MongoClient)
+    repo = ChargingRepository("mongodb://unused", "free5gc")
+    repo.db[CHARGING_DATA_COLL].insert_many(
+        [
+            {"ueId": "imsi-001", "ratingGroup": 3, "quota": "0", "chargingMethod": "Offline"},
+            {"ueId": "imsi-001", "ratingGroup": 9, "quota": "1000", "chargingMethod": "Online"},
+            {"ueId": "imsi-001", "ratingGroup": 4, "quota": "1000", "chargingMethod": "Online"},
+        ]
+    )
+
+    records = repo.list_charging_records("imsi-001", actionable_only=True)
+
+    assert [record["ratingGroup"] for record in records] == [9, 4, 3]
+
+
+def test_record_usage_debits_latest_online_bucket_by_delta(monkeypatch):
+    monkeypatch.setattr("app.repository.MongoClient", mongomock.MongoClient)
+    repo = ChargingRepository("mongodb://unused", "free5gc")
+    repo.db[CHARGING_DATA_COLL].insert_many(
+        [
+            {"ueId": "imsi-001", "ratingGroup": 4, "quota": "1000", "chargingMethod": "Online"},
+            {"ueId": "imsi-001", "ratingGroup": 9, "quota": "2000", "chargingMethod": "Online"},
+        ]
+    )
+
+    first = repo.record_usage(ue_id="imsi-001", rx_bytes=300, tx_bytes=200, source="ue-tunnel")
+    second = repo.record_usage(ue_id="imsi-001", rx_bytes=500, tx_bytes=250, source="ue-tunnel")
+    repeated = repo.record_usage(ue_id="imsi-001", rx_bytes=500, tx_bytes=250, source="ue-tunnel")
+
+    record = repo.db[CHARGING_DATA_COLL].find_one({"ueId": "imsi-001", "ratingGroup": 9})
+    assert first["deltaBytes"] == 500
+    assert second["deltaBytes"] == 250
+    assert repeated["deltaBytes"] == 0
+    assert record["quota"] == "1250"
+
+
+def test_missing_rating_group_is_actionable_as_zero(monkeypatch):
+    monkeypatch.setattr("app.repository.MongoClient", mongomock.MongoClient)
+    repo = ChargingRepository("mongodb://unused", "free5gc")
+    repo.db[CHARGING_DATA_COLL].insert_one(
+        {"ueId": "imsi-001", "quota": "1000", "chargingMethod": "Online", "dnn": "internet"}
+    )
+
+    records = repo.list_charging_records("imsi-001", actionable_only=True)
+    ledger = repo.top_up_quota(
+        ue_id="imsi-001",
+        rating_group=0,
+        amount_bytes=500,
+        actor="tester",
+        source="self-service",
+    )
+
+    record = repo.db[CHARGING_DATA_COLL].find_one({"ueId": "imsi-001"})
+    assert records[0]["ratingGroup"] == 0
+    assert ledger["newQuota"] == 1500
+    assert record["quota"] == "1500"
+
+
+def test_record_usage_debits_online_bucket_without_rating_group(monkeypatch):
+    monkeypatch.setattr("app.repository.MongoClient", mongomock.MongoClient)
+    repo = ChargingRepository("mongodb://unused", "free5gc")
+    repo.db[CHARGING_DATA_COLL].insert_one(
+        {"ueId": "imsi-001", "quota": "1000", "chargingMethod": "Online", "dnn": "internet"}
+    )
+
+    ledger = repo.record_usage(ue_id="imsi-001", rx_bytes=300, tx_bytes=200, source="ue-tunnel")
+
+    record = repo.db[CHARGING_DATA_COLL].find_one({"ueId": "imsi-001"})
+    assert ledger["ratingGroup"] == 0
+    assert ledger["newQuota"] == 500
+    assert record["quota"] == "500"

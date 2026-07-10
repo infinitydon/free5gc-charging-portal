@@ -4,7 +4,7 @@ Small lab portal for topping up free5GC online charging quota.
 
 The portal updates the same MongoDB charging data used by free5GC WebConsole/CHF:
 
-`policyData.ues.chargingData`
+`policyData.ues.chargingData`. The portal displays this configured/granted quota field directly; consumed usage is produced by free5GC CHF CDR processing once the SMF charging rule is attached to a chargeable PCC rule.
 
 It then optionally calls the free5GC CHF recharge notification endpoint:
 

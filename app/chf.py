@@ -19,7 +19,8 @@ async def notify_recharge(
         async with httpx.AsyncClient(timeout=2.0) as client:
             response = await client.put(url, params={"ratingGroup": rating_group}, headers=headers)
     except httpx.HTTPError as exc:
-        return False, f"CHF notification failed: {exc}"
+        detail = str(exc) or exc.__class__.__name__
+        return False, f"CHF notification failed: {detail}"
 
     if 200 <= response.status_code < 300:
         return True, f"CHF notification accepted with HTTP {response.status_code}"
