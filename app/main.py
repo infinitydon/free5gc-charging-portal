@@ -50,7 +50,7 @@ def get_repository(settings: Annotated[Settings, Depends(get_settings)]) -> Char
     return ChargingRepository(settings.mongo_uri, settings.mongo_db)
 
 
-app = FastAPI(title="free5GC Charging Portal", version="0.3.7")
+app = FastAPI(title="free5GC Charging Portal", version="0.3.10")
 
 
 def format_bytes(value: int | str | None) -> str:
@@ -115,15 +115,16 @@ def index(
 ) -> HTMLResponse:
     if settings.portal_mode.lower() == "user":
         ue_id = resolve_subscriber_from_request(request, settings)
+        account = repo.user_account(ue_id)
         return templates.TemplateResponse(
             "user.html",
             {
                 "request": request,
                 "title": settings.portal_title,
                 "ue_id": ue_id,
-                "records": repo.list_charging_records(ue_id, actionable_only=True),
-                "topups": [doc for doc in repo.list_topups(15) if doc.get("ueId") == ue_id],
-                "usage": repo.list_usage(15, ue_id),
+                "account": account,
+                "topups": account["recentTopups"],
+                "usage": account["recentUsage"],
                 "flash": flash_from_request(request),
             },
         )
@@ -240,10 +241,11 @@ async def self_topup(
     repo: Annotated[ChargingRepository, Depends(get_repository)],
 ) -> TopUpResponse:
     ue_id = resolve_subscriber_from_request(request, settings)
+    account = repo.user_account(ue_id)
     return await apply_topup(
         TopUpRequest(
             ueId=ue_id,
-            ratingGroup=payload.rating_group,
+            ratingGroup=account["activeRatingGroup"],
             amountBytes=payload.amount_bytes,
             actor=payload.actor,
             pin="",
@@ -268,6 +270,7 @@ async def topup_form(
 ) -> RedirectResponse:
     if source == "self-service":
         ue_id = resolve_subscriber_from_request(request, settings)
+        rating_group = repo.user_account(ue_id)["activeRatingGroup"]
         pin = ""
 
     payload = TopUpRequest(
@@ -286,10 +289,16 @@ async def topup_form(
             status_code=303,
         )
 
-    message = (
-        f"Top-up applied: {format_bytes(payload.amount_bytes)} added to {payload.ue_id} "
-        f"RG {payload.rating_group}. New quota: {format_bytes(result.ledger.get('newQuota'))}."
-    )
+    if source == "self-service":
+        message = (
+            f"Top-up successful: {format_bytes(payload.amount_bytes)} added to your data plan. "
+            f"New balance: {format_bytes(result.ledger.get('newQuota'))}."
+        )
+    else:
+        message = (
+            f"Top-up applied: {format_bytes(payload.amount_bytes)} added to {payload.ue_id} "
+            f"RG {payload.rating_group}. New quota: {format_bytes(result.ledger.get('newQuota'))}."
+        )
     status = "success" if result.chf_notified else "warning"
     if not result.chf_notified:
         message = f"{message} {result.message}"

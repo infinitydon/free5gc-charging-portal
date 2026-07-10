@@ -6,36 +6,67 @@
   <title>{{ title }}</title>
   <style>
     :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    body { margin: 0; background: #f7f8fb; color: #20242c; }
-    main { max-width: 980px; margin: 0 auto; padding: 32px 20px 48px; }
-    header { margin-bottom: 24px; }
-    h1 { margin: 0; font-size: 28px; }
+    body { margin: 0; background: #f5f7fb; color: #17202c; }
+    main { max-width: 1040px; margin: 0 auto; padding: 28px 18px 48px; }
+    header { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 18px; }
+    h1 { margin: 0; font-size: 28px; letter-spacing: 0; }
     h2 { font-size: 18px; margin: 0 0 12px; }
-    .grid { display: grid; grid-template-columns: minmax(300px, 360px) 1fr; gap: 18px; align-items: start; }
-    .panel { background: #fff; border: 1px solid #dce1ea; border-radius: 8px; padding: 18px; box-shadow: 0 1px 2px rgba(20, 28, 40, .04); }
-    label { display: block; font-size: 13px; font-weight: 650; margin: 12px 0 6px; }
-    input, select { width: 100%; box-sizing: border-box; border: 1px solid #c9d0db; border-radius: 6px; padding: 10px 11px; font-size: 14px; background: #fff; }
-    button { width: 100%; border: 0; border-radius: 6px; background: #1769aa; color: #fff; padding: 11px 14px; margin-top: 16px; font-weight: 750; cursor: pointer; }
+    .muted { color: #647084; font-size: 13px; }
+    .subscriber { text-align: right; font-size: 12px; color: #667085; }
+    .subscriber strong { display: block; color: #233044; font-size: 13px; margin-top: 3px; }
+    .hero { background: #ffffff; border: 1px solid #dce3ee; border-radius: 8px; padding: 18px; box-shadow: 0 1px 2px rgba(20, 28, 40, .04); }
+    .summary { display: grid; grid-template-columns: 1.1fr repeat(3, minmax(130px, .6fr)); gap: 12px; align-items: stretch; }
+    .stat { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 7px; padding: 14px; }
+    .stat span { display: block; color: #667085; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+    .stat strong { display: block; margin-top: 5px; font-size: 22px; font-weight: 780; }
+    .plan strong { font-size: 20px; }
+    .grid { display: grid; grid-template-columns: minmax(320px, 390px) 1fr; gap: 16px; align-items: start; margin-top: 16px; }
+    .panel { background: #fff; border: 1px solid #dce3ee; border-radius: 8px; padding: 18px; box-shadow: 0 1px 2px rgba(20, 28, 40, .04); }
+    .packs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .pack { position: relative; }
+    .pack input { position: absolute; opacity: 0; pointer-events: none; }
+    .pack span { display: block; border: 1px solid #cbd5e1; border-radius: 7px; padding: 13px 12px; background: #fff; cursor: pointer; font-weight: 760; text-align: center; }
+    .pack small { display: block; color: #667085; font-weight: 600; margin-top: 3px; }
+    .pack input:checked + span { border-color: #1769aa; background: #eef7ff; color: #124c7a; box-shadow: inset 0 0 0 1px #1769aa; }
+    label.custom { display: block; font-size: 13px; font-weight: 700; margin: 14px 0 6px; color: #344054; }
+    input[type=number] { width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 7px; padding: 10px 11px; font-size: 14px; background: #fff; }
+    button { width: 100%; border: 0; border-radius: 7px; background: #1769aa; color: #fff; padding: 12px 14px; margin-top: 15px; font-weight: 780; cursor: pointer; }
+    button:disabled { background: #98a2b3; cursor: not-allowed; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { border-bottom: 1px solid #e6eaf0; padding: 9px 8px; text-align: left; vertical-align: top; }
-    th { color: #566070; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
-    .identity { font-size: 13px; color: #344054; background: #eef6ff; border: 1px solid #cfe4ff; border-radius: 6px; padding: 10px; margin-top: 12px; }
-    .flash { border-radius: 8px; padding: 11px 13px; margin-bottom: 14px; font-size: 13px; font-weight: 680; border: 1px solid #cfe4ff; background: #eef6ff; color: #18466c; }
+    th, td { border-bottom: 1px solid #e6eaf0; padding: 10px 8px; text-align: left; vertical-align: top; }
+    th { color: #667085; font-size: 11px; text-transform: uppercase; font-weight: 780; }
+    .quota { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .flash { border-radius: 8px; padding: 11px 13px; margin: 14px 0; font-size: 13px; font-weight: 680; border: 1px solid #cfe4ff; background: #eef6ff; color: #18466c; }
     .flash.success { border-color: #b7e4c7; background: #edf9f1; color: #17663a; }
     .flash.warning { border-color: #ffe1a6; background: #fff8e6; color: #7a4b00; }
     .flash.error { border-color: #ffc9c9; background: #fff1f1; color: #9f1d1d; }
-    .muted { color: #667085; font-size: 13px; }
-    .quota { font-variant-numeric: tabular-nums; }
-    @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+    .empty { color: #667085; font-size: 13px; padding: 8px 0; }
+    @media (max-width: 860px) {
+      header { display: block; }
+      .subscriber { text-align: left; margin-top: 10px; }
+      .summary, .grid { grid-template-columns: 1fr; }
+      .packs { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
 <main>
   <header>
-    <h1>{{ title }}</h1>
-    <div class="muted">Self-service fictitious top-up bound to the detected subscriber</div>
-    <div class="identity">Detected subscriber: <strong>{{ ue_id }}</strong></div>
+    <div>
+      <h1>{{ title }}</h1>
+      <div class="muted">Manage your mobile data balance and add data when you need it.</div>
+    </div>
+    <div class="subscriber">Subscriber ID<strong>{{ ue_id }}</strong></div>
   </header>
+
+  <section class="hero">
+    <div class="summary">
+      <div class="stat plan"><span>Subscription</span><strong>{{ account.subscriptionName }}</strong><div class="muted">Active data service</div></div>
+      <div class="stat"><span>Data Left</span><strong>{{ account.remainingBytes | bytes }}</strong></div>
+      <div class="stat"><span>Used</span><strong>{{ account.usedBytes | bytes }}</strong></div>
+      <div class="stat"><span>Added</span><strong>{{ account.topUpBytes | bytes }}</strong></div>
+    </div>
+  </section>
 
   {% if flash %}
   <div class="flash {{ flash.status }}">{{ flash.message }}</div>
@@ -43,58 +74,44 @@
 
   <div class="grid">
     <section class="panel">
-      <h2>Self Top-Up</h2>
+      <h2>Add Data</h2>
+      {% if account.hasActivePlan %}
       <form method="post" action="/topup/form">
         <input type="hidden" name="source" value="self-service">
         <input type="hidden" name="actor" value="{{ ue_id }}">
-        <label for="ratingGroup">Bucket</label>
-        <select id="ratingGroup" name="ratingGroup" required>
-          {% for record in records %}
-          <option value="{{ record.ratingGroup }}">RG {{ record.ratingGroup }} / {{ record.chargingMethod }} / {{ record.dnn or "-" }} / {{ record.quota | bytes }}</option>
-          {% endfor %}
-        </select>
-        <label for="amountMb">Amount, MB</label>
-        <input id="amountMb" name="amountMb" type="number" min="1" value="100" required>
-        <button type="submit">Apply Fictitious Top-Up</button>
+        <input type="hidden" name="ratingGroup" value="{{ account.activeRatingGroup }}">
+        <div class="packs">
+          <label class="pack"><input type="radio" name="amountMb" value="100" checked><span>100 MB<small>Quick boost</small></span></label>
+          <label class="pack"><input type="radio" name="amountMb" value="500"><span>500 MB<small>Light browsing</small></span></label>
+          <label class="pack"><input type="radio" name="amountMb" value="1024"><span>1 GB<small>Daily bundle</small></span></label>
+          <label class="pack"><input type="radio" name="amountMb" value="5120"><span>5 GB<small>Extended use</small></span></label>
+        </div>
+        <label class="custom" for="customMb">Custom amount, MB</label>
+        <input id="customMb" type="number" min="1" placeholder="Leave blank to use selected package" oninput="if (this.value) { document.querySelectorAll('input[name=amountMb]').forEach(function(item){ item.checked = false; }); this.name='amountMb'; } else { this.removeAttribute('name'); }">
+        <button type="submit">Top Up Data</button>
       </form>
+      {% else %}
+      <div class="empty">No active data subscription is available for this SIM yet.</div>
+      {% endif %}
     </section>
 
     <section class="panel">
-      <h2>My Charging Records</h2>
+      <h2>Recent Activity</h2>
       <table>
-        <thead><tr><th>RG</th><th>Method</th><th>DNN</th><th>Quota</th></tr></thead>
+        <thead><tr><th>Time</th><th>Activity</th><th>Volume</th><th>Balance</th></tr></thead>
         <tbody>
-        {% for record in records %}
-          <tr><td>{{ record.ratingGroup }}</td><td>{{ record.chargingMethod }}</td><td>{{ record.dnn or "-" }}</td><td class="quota">{{ record.quota | bytes }}</td></tr>
+        {% for item in topups %}
+          <tr><td>{{ item.createdAt }}</td><td>Data top-up</td><td class="quota">{{ item.amountBytes | bytes }}</td><td class="quota">{{ item.newQuota | bytes }}</td></tr>
+        {% endfor %}
+        {% for item in usage[:5] %}
+          {% if item.deltaBytes %}
+          <tr><td>{{ item.createdAt }}</td><td>Data used</td><td class="quota">{{ item.deltaBytes | bytes }}</td><td class="quota">{{ item.newQuota | bytes }}</td></tr>
+          {% endif %}
         {% endfor %}
         </tbody>
       </table>
     </section>
   </div>
-
-  <section class="panel" style="margin-top: 18px;">
-    <h2>My Recent Top-Ups</h2>
-    <table>
-      <thead><tr><th>Time</th><th>RG</th><th>Amount</th><th>Old</th><th>New</th><th>Source</th></tr></thead>
-      <tbody>
-      {% for item in topups %}
-        <tr><td>{{ item.createdAt }}</td><td>{{ item.ratingGroup }}</td><td class="quota">{{ item.amountBytes | bytes }}</td><td class="quota">{{ item.oldQuota | bytes }}</td><td class="quota">{{ item.newQuota | bytes }}</td><td>{{ item.source }}</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </section>
-
-  <section class="panel" style="margin-top: 18px;">
-    <h2>My Observed Usage</h2>
-    <table>
-      <thead><tr><th>Time</th><th>RG</th><th>Delta</th><th>New Quota</th><th>Source</th></tr></thead>
-      <tbody>
-      {% for item in usage %}
-        <tr><td>{{ item.createdAt }}</td><td>{{ item.ratingGroup }}</td><td class="quota">{{ item.deltaBytes | bytes }}</td><td class="quota">{{ item.newQuota | bytes }}</td><td>{{ item.source }}</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </section>
 </main>
 </body>
 </html>

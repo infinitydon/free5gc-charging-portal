@@ -115,3 +115,22 @@ def test_record_usage_debits_online_bucket_without_rating_group(monkeypatch):
     assert ledger["ratingGroup"] == 0
     assert ledger["newQuota"] == 500
     assert record["quota"] == "500"
+
+
+def test_user_account_hides_internal_bucket_shape(monkeypatch):
+    monkeypatch.setattr("app.repository.MongoClient", mongomock.MongoClient)
+    repo = ChargingRepository("mongodb://unused", "free5gc")
+    repo.db[CHARGING_DATA_COLL].insert_one(
+        {"ueId": "imsi-001", "quota": "2000", "chargingMethod": "Online", "dnn": "internet"}
+    )
+    repo.top_up_quota(ue_id="imsi-001", rating_group=0, amount_bytes=500, actor="tester", source="self-service")
+    repo.record_usage(ue_id="imsi-001", rx_bytes=300, tx_bytes=200, source="ue-tunnel")
+
+    account = repo.user_account("imsi-001")
+
+    assert account["subscriptionName"] == "5G internet Data Plan"
+    assert account["remainingBytes"] == 2000
+    assert account["usedBytes"] == 500
+    assert account["topUpBytes"] == 500
+    assert account["activeRatingGroup"] == 0
+    assert account["hasActivePlan"] is True

@@ -24,7 +24,7 @@ This is intended for demos and lab validation. It is not a production billing sy
 | `PORTAL_TITLE` | `free5GC Charging Portal` | UI title. |
 | `PORTAL_MODE` | `operator` | `operator` shows all subscribers; `user` shows only the detected subscriber. |
 | `OPERATOR_PIN` | `admin123` | Demo operator PIN for operator top-ups. |
-| `END_USER_SELF_TOPUP` | `true` | Allow self-service fictitious top-ups. |
+| `END_USER_SELF_TOPUP` | `true` | Allow subscriber self-service top-ups. |
 | `TRUSTED_SUBSCRIBER_HEADER_ENABLED` | `false` | Allow a trusted ingress/proxy to pass the subscriber SUPI in a header. |
 | `TRUSTED_SUBSCRIBER_HEADER` | `x-subscriber-supi` | Header name used when trusted subscriber header mode is enabled. |
 | `SUBSCRIBER_BINDINGS_JSON` | `{}` | JSON map of source IP/CIDR to SUPI, for example `{"10.60.0.0/16":"imsi-208930000000001"}`. |
