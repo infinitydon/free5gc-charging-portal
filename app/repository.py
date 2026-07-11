@@ -99,6 +99,18 @@ class ChargingRepository:
                 grouped[key] = record
         return sorted(grouped.values(), key=_record_sort_key)
 
+    def list_current_plan_records(self, ue_id: str | None = None) -> list[dict[str, Any]]:
+        records = self.list_active_plan_records(ue_id)
+        by_ue: dict[str, dict[str, Any]] = {}
+        for record in records:
+            subscriber = str(record.get("ueId") or "")
+            if not subscriber:
+                continue
+            current = by_ue.get(subscriber)
+            if current is None or int(record.get("ratingGroup") or 0) > int(current.get("ratingGroup") or 0):
+                by_ue[subscriber] = record
+        return sorted(by_ue.values(), key=_record_sort_key)
+
     def top_up_quota(
         self,
         *,
@@ -207,13 +219,24 @@ class ChargingRepository:
                 doc["createdAt"] = doc["createdAt"].isoformat()
         return docs
 
+    def total_usage_bytes(self, ue_id: str) -> int:
+        result = list(
+            self.usage.aggregate(
+                [
+                    {"$match": {"ueId": ue_id}},
+                    {"$group": {"_id": None, "total": {"$sum": "$deltaBytes"}}},
+                ]
+            )
+        )
+        return int(result[0].get("total") or 0) if result else 0
+
     def user_account(self, ue_id: str) -> dict[str, Any]:
-        records = self.list_active_plan_records(ue_id) or self.list_charging_records(ue_id, actionable_only=True)
+        records = self.list_current_plan_records(ue_id) or self.list_active_plan_records(ue_id) or self.list_charging_records(ue_id, actionable_only=True)
         active = next((record for record in records if str(record.get("chargingMethod") or "").lower() == "online"), None)
         topups = [doc for doc in self.list_topups(50) if doc.get("ueId") == ue_id]
         usage = self.list_usage(50, ue_id)
         remaining_bytes = int(active.get("quota") or 0) if active else sum(int(record.get("quota") or 0) for record in records)
-        used_bytes = sum(int(doc.get("deltaBytes") or 0) for doc in usage)
+        used_bytes = self.total_usage_bytes(ue_id)
         added_bytes = sum(int(doc.get("amountBytes") or 0) for doc in topups)
         subscription_name = "5G Data Plan"
         if active and active.get("dnn"):
@@ -232,7 +255,7 @@ class ChargingRepository:
         }
 
     def subscriber_summaries(self) -> list[dict[str, Any]]:
-        records = self.list_active_plan_records() or self.list_charging_records(actionable_only=True)
+        records = self.list_current_plan_records() or self.list_active_plan_records() or self.list_charging_records(actionable_only=True)
         topup_docs = list(self.topups.find({}, {"_id": 0}).sort("createdAt", -1))
         usage_docs = list(self.usage.find({}, {"_id": 0}).sort("createdAt", -1))
         by_ue: dict[str, dict[str, Any]] = {}

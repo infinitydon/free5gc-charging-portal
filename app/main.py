@@ -50,7 +50,7 @@ def get_repository(settings: Annotated[Settings, Depends(get_settings)]) -> Char
     return ChargingRepository(settings.mongo_uri, settings.mongo_db)
 
 
-app = FastAPI(title="free5GC Charging Portal", version="0.3.14")
+app = FastAPI(title="free5GC Charging Portal", version="0.3.15")
 
 
 def format_bytes(value: int | str | None) -> str:
@@ -130,7 +130,7 @@ def index(
         )
 
     summaries = repo.subscriber_summaries()
-    records = repo.list_active_plan_records()
+    records = repo.list_current_plan_records()
     raw_records = repo.list_charging_records(actionable_only=True)
     return templates.TemplateResponse(
         "operator.html",
@@ -185,7 +185,7 @@ def usage(repo: Annotated[ChargingRepository, Depends(get_repository)], limit: i
 @app.get("/api/operator-summary")
 def operator_summary(repo: Annotated[ChargingRepository, Depends(get_repository)]) -> dict:
     summaries = repo.subscriber_summaries()
-    records = repo.list_active_plan_records()
+    records = repo.list_current_plan_records()
     return {
         "subscriberCount": len(summaries),
         "recordCount": len(records),

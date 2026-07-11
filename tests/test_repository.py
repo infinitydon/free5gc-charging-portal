@@ -79,6 +79,23 @@ def test_active_plan_records_hide_base_policy_buckets(monkeypatch):
     ]
 
 
+def test_current_plan_records_select_one_billable_plan_per_subscriber(monkeypatch):
+    monkeypatch.setattr("app.repository.MongoClient", mongomock.MongoClient)
+    repo = ChargingRepository("mongodb://unused", "free5gc")
+    repo.db[CHARGING_DATA_COLL].insert_many(
+        [
+            {"ueId": "imsi-001", "snssai": "01010203", "dnn": "internet", "filter": "any", "quota": "1000", "chargingMethod": "Online"},
+            {"ueId": "imsi-001", "snssai": "01112233", "dnn": "internet", "filter": "any", "ratingGroup": 44, "quota": "500", "chargingMethod": "Online"},
+        ]
+    )
+
+    records = repo.list_current_plan_records("imsi-001")
+
+    assert len(records) == 1
+    assert records[0]["ratingGroup"] == 44
+    assert records[0]["quota"] == "500"
+
+
 def test_record_usage_debits_latest_online_bucket_by_delta(monkeypatch):
     monkeypatch.setattr("app.repository.MongoClient", mongomock.MongoClient)
     repo = ChargingRepository("mongodb://unused", "free5gc")
@@ -154,3 +171,18 @@ def test_user_account_hides_internal_bucket_shape(monkeypatch):
     assert account["topUpBytes"] == 500
     assert account["activeRatingGroup"] == 0
     assert account["hasActivePlan"] is True
+
+
+def test_user_account_used_bytes_sums_full_usage_ledger(monkeypatch):
+    monkeypatch.setattr("app.repository.MongoClient", mongomock.MongoClient)
+    repo = ChargingRepository("mongodb://unused", "free5gc")
+    repo.db[CHARGING_DATA_COLL].insert_one(
+        {"ueId": "imsi-001", "ratingGroup": 10, "quota": "2000", "chargingMethod": "Online", "dnn": "internet", "filter": "any"}
+    )
+    for index in range(60):
+        repo.usage.insert_one({"ueId": "imsi-001", "deltaBytes": index + 1, "createdAt": index})
+
+    account = repo.user_account("imsi-001")
+
+    assert account["usedBytes"] == 1830
+    assert len(account["recentUsage"]) == 8
