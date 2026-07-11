@@ -24,6 +24,9 @@
     input, select { width: 100%; box-sizing: border-box; border: 1px solid #c8d0dc; border-radius: 6px; padding: 9px 10px; font-size: 14px; background: #fff; color: #1f2937; }
     button { width: 100%; border: 0; border-radius: 6px; background: #1261a6; color: #fff; padding: 10px 13px; margin-top: 15px; font-weight: 760; cursor: pointer; }
     .refresh { width: auto; margin-top: 0; padding: 8px 12px; background: #fff; color: #1261a6; border: 1px solid #b8d4ea; }
+    .refresh-controls { display: flex; align-items: center; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+    .refresh-controls label { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; color: #667085; font-weight: 700; }
+    .refresh-controls input { width: 64px; padding: 8px; }
     table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
     th, td { border-bottom: 1px solid #e6ebf2; padding: 9px 8px; text-align: left; vertical-align: top; }
     th { color: #667085; font-size: 11px; text-transform: uppercase; font-weight: 780; }
@@ -51,7 +54,11 @@
       <h1>{{ title }}</h1>
       <div class="muted">Subscriber balance and quota operations for the free5GC lab</div>
     </div>
-    <div><button class="refresh" type="button" onclick="refreshSummary()">Refresh</button> <span class="badge">CHF recharge notification enabled</span></div>
+    <div class="refresh-controls">
+      <label for="poll-seconds">Refresh every <input id="poll-seconds" type="number" min="2" max="300" value="5"> sec</label>
+      <button class="refresh" type="button" onclick="refreshSummary()">Refresh</button>
+      <span class="badge">CHF recharge notification enabled</span>
+    </div>
   </header>
 
   <section class="metrics" aria-label="Charging summary">
@@ -98,7 +105,7 @@
               <th>Subscriber</th><th>Status</th><th>DNN</th><th>Slice</th><th>Active RG</th><th>Plans</th><th>Quota</th><th>Top-Ups</th><th>Usage</th><th>Last Top-Up</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="subscriber-body">
           {% for item in summaries %}
             <tr>
               <td>{{ item.ueId }}</td>
@@ -124,7 +131,7 @@
     <div class="scroll">
       <table>
         <thead><tr><th>Subscriber</th><th>PLMN</th><th>Slice</th><th>DNN</th><th>RG</th><th>Method</th><th>Quota</th><th>Unit Cost</th><th>Filter</th></tr></thead>
-        <tbody>
+        <tbody id="records-body">
         {% for record in records %}
           <tr>
             <td>{{ record.ueId }}</td>
@@ -148,7 +155,7 @@
     <div class="scroll">
       <table>
         <thead><tr><th>Subscriber</th><th>PLMN</th><th>Slice</th><th>DNN</th><th>RG</th><th>Method</th><th>Quota</th><th>Unit Cost</th><th>Filter</th></tr></thead>
-        <tbody>
+        <tbody id="raw-records-body">
         {% for record in raw_records %}
           <tr>
             <td>{{ record.ueId }}</td>
@@ -172,7 +179,7 @@
     <div class="scroll">
       <table>
         <thead><tr><th>Time</th><th>Subscriber</th><th>RG</th><th>Amount</th><th>Previous</th><th>New</th><th>Source</th><th>Actor</th></tr></thead>
-        <tbody>
+        <tbody id="topups-body">
         {% for item in topups %}
           <tr>
             <td>{{ item.createdAt }}</td>
@@ -195,7 +202,7 @@
     <div class="scroll">
       <table>
         <thead><tr><th>Time</th><th>Subscriber</th><th>RG</th><th>Delta</th><th>RX</th><th>TX</th><th>Previous</th><th>New</th><th>Source</th></tr></thead>
-        <tbody>
+        <tbody id="usage-body">
         {% for item in usage %}
           <tr>
             <td>{{ item.createdAt }}</td>
@@ -233,8 +240,87 @@
       amount /= 1024;
     }
   }
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, function(char) {
+      return {"&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"}[char];
+    });
+  }
+  function renderPlanOptions(records) {
+    const selectedUe = bucketSelect.value;
+    const selectedRatingGroup = ratingGroupInput.value;
+    bucketSelect.innerHTML = (records || []).map(function(record) {
+      const dnn = record.dnn || "-";
+      return `<option value="${escapeHtml(record.ueId)}" data-rating-group="${escapeHtml(record.ratingGroup)}">${escapeHtml(record.ueId)} / ${escapeHtml(dnn)} / ${formatBytes(record.quota)}</option>`;
+    }).join("");
+    if (selectedUe && Array.from(bucketSelect.options).some(function(option) { return option.value === selectedUe; })) {
+      bucketSelect.value = selectedUe;
+      ratingGroupInput.value = selectedRatingGroup;
+    } else {
+      syncBucket();
+    }
+  }
+  function renderSubscribers(items) {
+    document.getElementById("subscriber-body").innerHTML = (items || []).map(function(item) {
+      return `<tr>
+        <td>${escapeHtml(item.ueId)}</td>
+        <td><span class="status">Active</span></td>
+        <td>${escapeHtml(item.dnns)}</td>
+        <td>${escapeHtml(item.snssais)}</td>
+        <td class="number">${escapeHtml(item.ratingGroups)}</td>
+        <td class="number">${escapeHtml(item.recordCount)}</td>
+        <td class="quota">${formatBytes(item.remainingBytes)}</td>
+        <td class="quota">${formatBytes(item.topUpBytes)}</td>
+        <td class="quota">${formatBytes(item.usageBytes)}</td>
+        <td>${escapeHtml(item.lastTopUpAt || "-")}</td>
+      </tr>`;
+    }).join("");
+  }
+  function recordRows(records) {
+    return (records || []).map(function(record) {
+      return `<tr>
+        <td>${escapeHtml(record.ueId)}</td>
+        <td>${escapeHtml(record.servingPlmnId || "-")}</td>
+        <td>${escapeHtml(record.snssai || "-")}</td>
+        <td>${escapeHtml(record.dnn || "-")}</td>
+        <td class="number">${escapeHtml(record.ratingGroup ?? "-")}</td>
+        <td>${escapeHtml(record.chargingMethod || "-")}</td>
+        <td class="quota">${formatBytes(record.quota)}</td>
+        <td class="number">${escapeHtml(record.unitCost || "-")}</td>
+        <td>${escapeHtml(record.filter || "-")}</td>
+      </tr>`;
+    }).join("");
+  }
+  function renderTopups(items) {
+    document.getElementById("topups-body").innerHTML = (items || []).map(function(item) {
+      return `<tr>
+        <td>${escapeHtml(item.createdAt)}</td>
+        <td>${escapeHtml(item.ueId)}</td>
+        <td class="number">${escapeHtml(item.ratingGroup)}</td>
+        <td class="quota">${formatBytes(item.amountBytes)}</td>
+        <td class="quota">${formatBytes(item.oldQuota)}</td>
+        <td class="quota">${formatBytes(item.newQuota)}</td>
+        <td>${escapeHtml(item.source)}</td>
+        <td>${escapeHtml(item.actor)}</td>
+      </tr>`;
+    }).join("");
+  }
+  function renderUsage(items) {
+    document.getElementById("usage-body").innerHTML = (items || []).map(function(item) {
+      return `<tr>
+        <td>${escapeHtml(item.createdAt)}</td>
+        <td>${escapeHtml(item.ueId)}</td>
+        <td class="number">${escapeHtml(item.ratingGroup)}</td>
+        <td class="quota">${formatBytes(item.deltaBytes)}</td>
+        <td class="quota">${formatBytes(item.rxBytes)}</td>
+        <td class="quota">${formatBytes(item.txBytes)}</td>
+        <td class="quota">${formatBytes(item.oldQuota)}</td>
+        <td class="quota">${formatBytes(item.newQuota)}</td>
+        <td>${escapeHtml(item.source)}</td>
+      </tr>`;
+    }).join("");
+  }
   async function refreshSummary() {
-    const response = await fetch("/api/operator-summary", {cache: "no-store"});
+    const response = await fetch("/api/operator-dashboard", {cache: "no-store"});
     if (!response.ok) return;
     const data = await response.json();
     document.getElementById("subscriber-count").textContent = data.subscriberCount;
@@ -242,7 +328,21 @@
     document.getElementById("total-remaining").textContent = formatBytes(data.totalRemainingBytes);
     document.getElementById("total-topups").textContent = formatBytes(data.totalTopUpBytes);
     document.getElementById("total-usage").textContent = formatBytes(data.totalUsageBytes);
+    renderPlanOptions(data.records);
+    renderSubscribers(data.summaries);
+    document.getElementById("records-body").innerHTML = recordRows(data.records);
+    document.getElementById("raw-records-body").innerHTML = recordRows(data.rawRecords);
+    renderTopups(data.topups);
+    renderUsage(data.usage);
   }
+  let pollTimer;
+  function schedulePolling() {
+    clearInterval(pollTimer);
+    const seconds = Math.max(2, Number(document.getElementById("poll-seconds").value || 5));
+    pollTimer = setInterval(refreshSummary, seconds * 1000);
+  }
+  document.getElementById("poll-seconds").addEventListener("change", schedulePolling);
+  schedulePolling();
 </script>
 </body>
 </html>

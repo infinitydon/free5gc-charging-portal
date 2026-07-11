@@ -50,7 +50,7 @@ def get_repository(settings: Annotated[Settings, Depends(get_settings)]) -> Char
     return ChargingRepository(settings.mongo_uri, settings.mongo_db)
 
 
-app = FastAPI(title="free5GC Charging Portal", version="0.3.16")
+app = FastAPI(title="free5GC Charging Portal", version="0.3.17")
 
 
 def format_bytes(value: int | str | None) -> str:
@@ -192,6 +192,24 @@ def operator_summary(repo: Annotated[ChargingRepository, Depends(get_repository)
         "totalRemainingBytes": sum(int(item.get("remainingBytes") or 0) for item in summaries),
         "totalTopUpBytes": sum(int(item.get("topUpBytes") or 0) for item in summaries),
         "totalUsageBytes": sum(int(item.get("usageBytes") or 0) for item in summaries),
+    }
+
+
+@app.get("/api/operator-dashboard")
+def operator_dashboard(repo: Annotated[ChargingRepository, Depends(get_repository)]) -> dict:
+    summaries = repo.subscriber_summaries()
+    records = repo.list_current_plan_records()
+    return {
+        "subscriberCount": len(summaries),
+        "recordCount": len(records),
+        "totalRemainingBytes": sum(int(item.get("remainingBytes") or 0) for item in summaries),
+        "totalTopUpBytes": sum(int(item.get("topUpBytes") or 0) for item in summaries),
+        "totalUsageBytes": sum(int(item.get("usageBytes") or 0) for item in summaries),
+        "records": records,
+        "rawRecords": repo.list_charging_records(actionable_only=True),
+        "topups": repo.list_topups(15),
+        "usage": repo.list_usage(15),
+        "summaries": summaries,
     }
 
 

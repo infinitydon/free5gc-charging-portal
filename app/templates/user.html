@@ -32,6 +32,9 @@
     input[type=number] { width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 7px; padding: 10px 11px; font-size: 14px; background: #fff; }
     button { width: 100%; border: 0; border-radius: 7px; background: #1769aa; color: #fff; padding: 12px 14px; margin-top: 15px; font-weight: 780; cursor: pointer; }
     .refresh { width: auto; margin-top: 0; padding: 9px 12px; background: #ffffff; color: #1769aa; border: 1px solid #b8d4ea; }
+    .refresh-controls { display: flex; align-items: center; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+    .refresh-controls label { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; color: #667085; font-weight: 700; }
+    .refresh-controls input { width: 64px; padding: 8px; }
     button:disabled { background: #98a2b3; cursor: not-allowed; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th, td { border-bottom: 1px solid #e6eaf0; padding: 10px 8px; text-align: left; vertical-align: top; }
@@ -58,7 +61,10 @@
       <div class="muted">Manage your mobile data balance and add data when you need it.</div>
     </div>
     <div class="subscriber">Subscriber ID<strong>{{ ue_id }}</strong></div>
-    <button class="refresh" type="button" onclick="refreshAccount()">Refresh</button>
+    <div class="refresh-controls">
+      <label for="poll-seconds">Refresh every <input id="poll-seconds" type="number" min="2" max="300" value="5"> sec</label>
+      <button class="refresh" type="button" onclick="refreshAccount()">Refresh</button>
+    </div>
   </header>
 
   <section class="hero">
@@ -101,7 +107,7 @@
       <h2>Recent Activity</h2>
       <table>
         <thead><tr><th>Time</th><th>Activity</th><th>Volume</th><th>Balance</th></tr></thead>
-        <tbody>
+        <tbody id="activity-body">
         {% for item in topups %}
           <tr><td>{{ item.createdAt }}</td><td>Data top-up</td><td class="quota">{{ item.amountBytes | bytes }}</td><td class="quota">{{ item.newQuota | bytes }}</td></tr>
         {% endfor %}
@@ -124,6 +130,23 @@
       amount /= 1024;
     }
   }
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, function(char) {
+      return {"&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"}[char];
+    });
+  }
+  function renderActivity(account) {
+    const rows = [];
+    for (const item of account.recentTopups || []) {
+      rows.push(`<tr><td>${escapeHtml(item.createdAt)}</td><td>Data top-up</td><td class="quota">${formatBytes(item.amountBytes)}</td><td class="quota">${formatBytes(item.newQuota)}</td></tr>`);
+    }
+    for (const item of (account.recentUsage || []).slice(0, 5)) {
+      if (Number(item.deltaBytes || 0) > 0) {
+        rows.push(`<tr><td>${escapeHtml(item.createdAt)}</td><td>Data used</td><td class="quota">${formatBytes(item.deltaBytes)}</td><td class="quota">${formatBytes(item.newQuota)}</td></tr>`);
+      }
+    }
+    document.getElementById("activity-body").innerHTML = rows.join("");
+  }
   async function refreshAccount() {
     const response = await fetch("/api/me", {cache: "no-store"});
     if (!response.ok) return;
@@ -131,7 +154,16 @@
     document.getElementById("data-left").textContent = formatBytes(account.remainingBytes);
     document.getElementById("data-used").textContent = formatBytes(account.usedBytes);
     document.getElementById("data-added").textContent = formatBytes(account.topUpBytes);
+    renderActivity(account);
   }
+  let pollTimer;
+  function schedulePolling() {
+    clearInterval(pollTimer);
+    const seconds = Math.max(2, Number(document.getElementById("poll-seconds").value || 5));
+    pollTimer = setInterval(refreshAccount, seconds * 1000);
+  }
+  document.getElementById("poll-seconds").addEventListener("change", schedulePolling);
+  schedulePolling();
 </script>
 </body>
 </html>
