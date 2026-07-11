@@ -59,6 +59,26 @@ def test_charging_records_list_newest_online_buckets_first(monkeypatch):
     assert [record["ratingGroup"] for record in records] == [9, 4, 3]
 
 
+def test_active_plan_records_hide_base_policy_buckets(monkeypatch):
+    monkeypatch.setattr("app.repository.MongoClient", mongomock.MongoClient)
+    repo = ChargingRepository("mongodb://unused", "free5gc")
+    repo.db[CHARGING_DATA_COLL].insert_many(
+        [
+            {"ueId": "imsi-001", "snssai": "01010203", "dnn": "", "filter": "", "quota": "1000", "chargingMethod": "Online"},
+            {"ueId": "imsi-001", "snssai": "01010203", "dnn": "internet", "filter": "any", "quota": "1000", "chargingMethod": "Online"},
+            {"ueId": "imsi-001", "snssai": "01010203", "dnn": "internet", "filter": "any", "ratingGroup": 33, "quota": "750", "chargingMethod": "Online"},
+            {"ueId": "imsi-001", "snssai": "01112233", "dnn": "internet", "filter": "any", "ratingGroup": 44, "quota": "500", "chargingMethod": "Online"},
+        ]
+    )
+
+    records = repo.list_active_plan_records("imsi-001")
+
+    assert [(record.get("snssai"), record.get("ratingGroup"), record.get("quota")) for record in records] == [
+        ("01112233", 44, "500"),
+        ("01010203", 33, "750"),
+    ]
+
+
 def test_record_usage_debits_latest_online_bucket_by_delta(monkeypatch):
     monkeypatch.setattr("app.repository.MongoClient", mongomock.MongoClient)
     repo = ChargingRepository("mongodb://unused", "free5gc")

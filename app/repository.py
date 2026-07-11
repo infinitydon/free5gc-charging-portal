@@ -30,6 +30,14 @@ def _record_sort_key(record: dict[str, Any]) -> tuple[int, int, str]:
     return (method_rank, -rating_group, str(record.get("ueId") or ""))
 
 
+def _is_data_plan_record(record: dict[str, Any]) -> bool:
+    return (
+        str(record.get("chargingMethod") or "").lower() == "online"
+        and bool(str(record.get("dnn") or "").strip())
+        and bool(str(record.get("filter") or "").strip())
+    )
+
+
 class ChargingRepository:
     def __init__(self, mongo_uri: str, db_name: str) -> None:
         self.client: MongoClient[Any] = MongoClient(mongo_uri)
@@ -72,6 +80,24 @@ class ChargingRepository:
         records = [_normalize_rating_group(record) for record in records]
         records.sort(key=_record_sort_key)
         return records
+
+    def list_active_plan_records(self, ue_id: str | None = None) -> list[dict[str, Any]]:
+        records = [record for record in self.list_charging_records(ue_id, actionable_only=True) if _is_data_plan_record(record)]
+        grouped: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+        for record in records:
+            key = (
+                str(record.get("ueId") or ""),
+                str(record.get("snssai") or ""),
+                str(record.get("dnn") or ""),
+                str(record.get("filter") or ""),
+            )
+            current = grouped.get(key)
+            if current is None:
+                grouped[key] = record
+                continue
+            if int(record.get("ratingGroup") or 0) > int(current.get("ratingGroup") or 0):
+                grouped[key] = record
+        return sorted(grouped.values(), key=_record_sort_key)
 
     def top_up_quota(
         self,
@@ -182,7 +208,7 @@ class ChargingRepository:
         return docs
 
     def user_account(self, ue_id: str) -> dict[str, Any]:
-        records = self.list_charging_records(ue_id, actionable_only=True)
+        records = self.list_active_plan_records(ue_id) or self.list_charging_records(ue_id, actionable_only=True)
         active = next((record for record in records if str(record.get("chargingMethod") or "").lower() == "online"), None)
         topups = [doc for doc in self.list_topups(50) if doc.get("ueId") == ue_id]
         usage = self.list_usage(50, ue_id)
@@ -206,7 +232,7 @@ class ChargingRepository:
         }
 
     def subscriber_summaries(self) -> list[dict[str, Any]]:
-        records = self.list_charging_records(actionable_only=True)
+        records = self.list_active_plan_records() or self.list_charging_records(actionable_only=True)
         topup_docs = list(self.topups.find({}, {"_id": 0}).sort("createdAt", -1))
         usage_docs = list(self.usage.find({}, {"_id": 0}).sort("createdAt", -1))
         by_ue: dict[str, dict[str, Any]] = {}

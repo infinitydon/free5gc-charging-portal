@@ -56,7 +56,7 @@
 
   <section class="metrics" aria-label="Charging summary">
     <div class="metric"><span>Subscribers</span><strong id="subscriber-count">{{ subscriber_count }}</strong></div>
-    <div class="metric"><span>Charging Buckets</span><strong id="record-count">{{ record_count }}</strong></div>
+    <div class="metric"><span>Active Plans</span><strong id="record-count">{{ record_count }}</strong></div>
     <div class="metric"><span>Configured Quota</span><strong id="total-remaining">{{ total_remaining_bytes | bytes }}</strong></div>
     <div class="metric"><span>Top-Ups Applied</span><strong id="total-topups">{{ total_topup_bytes | bytes }}</strong></div>
     <div class="metric"><span>Observed Usage</span><strong id="total-usage">{{ total_usage_bytes | bytes }}</strong></div>
@@ -71,10 +71,10 @@
       <h2>Manual Adjustment</h2>
       <form method="post" action="/topup/form">
         <input type="hidden" name="source" value="operator">
-        <label for="ueId">Subscriber / Bucket</label>
+        <label for="ueId">Subscriber / Active Plan</label>
         <select id="ueId" name="ueId" required>
           {% for record in records %}
-          <option value="{{ record.ueId }}" data-rating-group="{{ record.ratingGroup }}">{{ record.ueId }} / RG {{ record.ratingGroup }} / {{ record.dnn or "-" }}</option>
+          <option value="{{ record.ueId }}" data-rating-group="{{ record.ratingGroup }}">{{ record.ueId }} / {{ record.dnn or "-" }} / {{ record.quota | bytes }}</option>
           {% endfor %}
         </select>
         <label for="ratingGroup">Rating Group</label>
@@ -95,7 +95,7 @@
         <table>
           <thead>
             <tr>
-              <th>Subscriber</th><th>Status</th><th>DNN</th><th>Slice</th><th>RG</th><th>Buckets</th><th>Quota</th><th>Top-Ups</th><th>Usage</th><th>Last Top-Up</th>
+              <th>Subscriber</th><th>Status</th><th>DNN</th><th>Slice</th><th>Active RG</th><th>Plans</th><th>Quota</th><th>Top-Ups</th><th>Usage</th><th>Last Top-Up</th>
             </tr>
           </thead>
           <tbody>
@@ -120,12 +120,36 @@
   </div>
 
   <section class="panel section">
-    <h2>Charging Buckets</h2>
+    <h2>Active Data Plans</h2>
     <div class="scroll">
       <table>
         <thead><tr><th>Subscriber</th><th>PLMN</th><th>Slice</th><th>DNN</th><th>RG</th><th>Method</th><th>Quota</th><th>Unit Cost</th><th>Filter</th></tr></thead>
         <tbody>
         {% for record in records %}
+          <tr>
+            <td>{{ record.ueId }}</td>
+            <td>{{ record.servingPlmnId or "-" }}</td>
+            <td>{{ record.snssai or "-" }}</td>
+            <td>{{ record.dnn or "-" }}</td>
+            <td class="number">{{ record.ratingGroup if record.ratingGroup is defined else "-" }}</td>
+            <td>{{ record.chargingMethod }}</td>
+            <td class="quota">{{ record.quota | bytes }}</td>
+            <td class="number">{{ record.unitCost or "-" }}</td>
+            <td>{{ record.filter or "-" }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel section">
+    <h2>Technical Charging Buckets</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Subscriber</th><th>PLMN</th><th>Slice</th><th>DNN</th><th>RG</th><th>Method</th><th>Quota</th><th>Unit Cost</th><th>Filter</th></tr></thead>
+        <tbody>
+        {% for record in raw_records %}
           <tr>
             <td>{{ record.ueId }}</td>
             <td>{{ record.servingPlmnId or "-" }}</td>
