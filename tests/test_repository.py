@@ -43,6 +43,57 @@ def test_top_up_missing_record_raises_lookup_error(monkeypatch):
         raise AssertionError("expected LookupError")
 
 
+def test_top_up_transient_rating_group_updates_durable_data_plan_records(monkeypatch):
+    monkeypatch.setattr("app.repository.MongoClient", mongomock.MongoClient)
+    repo = ChargingRepository("mongodb://unused", "free5gc")
+    repo.db[CHARGING_DATA_COLL].insert_many(
+        [
+            {
+                "ueId": "imsi-001",
+                "snssai": "01010203",
+                "dnn": "internet",
+                "filter": "any",
+                "ratingGroup": 0,
+                "quota": "1000",
+                "chargingMethod": "Online",
+            },
+            {
+                "ueId": "imsi-001",
+                "snssai": "01112233",
+                "dnn": "internet",
+                "filter": "any",
+                "ratingGroup": 0,
+                "quota": "1000",
+                "chargingMethod": "Online",
+            },
+            {
+                "ueId": "imsi-001",
+                "snssai": "01112233",
+                "dnn": "internet",
+                "filter": "any",
+                "ratingGroup": 1748,
+                "quota": "-100",
+                "chargingMethod": "Online",
+            },
+        ]
+    )
+
+    ledger = repo.top_up_quota(
+        ue_id="imsi-001",
+        rating_group=1748,
+        amount_bytes=500,
+        actor="tester",
+        source="self-service",
+    )
+
+    durable = list(repo.db[CHARGING_DATA_COLL].find({"ueId": "imsi-001", "ratingGroup": 0}).sort("snssai", 1))
+    transient = repo.db[CHARGING_DATA_COLL].find_one({"ueId": "imsi-001", "ratingGroup": 1748})
+    assert [record["quota"] for record in durable] == ["1500", "1500"]
+    assert transient["quota"] == "400"
+    assert ledger["oldQuota"] == -100
+    assert ledger["newQuota"] == 400
+
+
 def test_charging_records_list_newest_online_buckets_first(monkeypatch):
     monkeypatch.setattr("app.repository.MongoClient", mongomock.MongoClient)
     repo = ChargingRepository("mongodb://unused", "free5gc")
