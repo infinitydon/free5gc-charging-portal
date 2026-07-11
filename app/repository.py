@@ -38,6 +38,16 @@ def _is_data_plan_record(record: dict[str, Any]) -> bool:
     )
 
 
+def _quota_bytes(record: dict[str, Any] | None) -> int:
+    if not record:
+        return 0
+    return int(record.get("quota") or 0)
+
+
+def _remaining_bytes(record: dict[str, Any] | None) -> int:
+    return max(0, _quota_bytes(record))
+
+
 class ChargingRepository:
     def __init__(self, mongo_uri: str, db_name: str) -> None:
         self.client: MongoClient[Any] = MongoClient(mongo_uri)
@@ -235,7 +245,8 @@ class ChargingRepository:
         active = next((record for record in records if str(record.get("chargingMethod") or "").lower() == "online"), None)
         topups = [doc for doc in self.list_topups(50) if doc.get("ueId") == ue_id]
         usage = self.list_usage(50, ue_id)
-        remaining_bytes = int(active.get("quota") or 0) if active else sum(int(record.get("quota") or 0) for record in records)
+        raw_remaining_bytes = _quota_bytes(active) if active else sum(_quota_bytes(record) for record in records)
+        remaining_bytes = max(0, raw_remaining_bytes)
         used_bytes = self.total_usage_bytes(ue_id)
         added_bytes = sum(int(doc.get("amountBytes") or 0) for doc in topups)
         subscription_name = "5G Data Plan"
@@ -245,6 +256,8 @@ class ChargingRepository:
             "ueId": ue_id,
             "subscriptionName": subscription_name,
             "remainingBytes": remaining_bytes,
+            "rawRemainingBytes": raw_remaining_bytes,
+            "overageBytes": abs(min(0, raw_remaining_bytes)),
             "usedBytes": used_bytes,
             "topUpBytes": added_bytes,
             "lastTopUpAt": str(topups[0].get("createdAt") or "") if topups else "",
@@ -270,6 +283,8 @@ class ChargingRepository:
                     "ueId": ue_id,
                     "recordCount": 0,
                     "remainingBytes": 0,
+                    "rawRemainingBytes": 0,
+                    "overageBytes": 0,
                     "topUpBytes": 0,
                     "usageBytes": 0,
                     "ratingGroups": set(),
@@ -280,7 +295,10 @@ class ChargingRepository:
                 },
             )
             summary["recordCount"] += 1
-            summary["remainingBytes"] += int(record.get("quota") or 0)
+            raw_quota = _quota_bytes(record)
+            summary["remainingBytes"] += _remaining_bytes(record)
+            summary["rawRemainingBytes"] = int(summary.get("rawRemainingBytes") or 0) + raw_quota
+            summary["overageBytes"] = int(summary.get("overageBytes") or 0) + abs(min(0, raw_quota))
             if record.get("ratingGroup") is not None:
                 summary["ratingGroups"].add(str(record.get("ratingGroup")))
             if record.get("dnn"):
@@ -300,6 +318,8 @@ class ChargingRepository:
                     "ueId": ue_id,
                     "recordCount": 0,
                     "remainingBytes": 0,
+                    "rawRemainingBytes": 0,
+                    "overageBytes": 0,
                     "topUpBytes": 0,
                     "usageBytes": 0,
                     "ratingGroups": set(),
@@ -324,6 +344,8 @@ class ChargingRepository:
                     "ueId": ue_id,
                     "recordCount": 0,
                     "remainingBytes": 0,
+                    "rawRemainingBytes": 0,
+                    "overageBytes": 0,
                     "topUpBytes": 0,
                     "usageBytes": 0,
                     "ratingGroups": set(),

@@ -50,7 +50,7 @@ def get_repository(settings: Annotated[Settings, Depends(get_settings)]) -> Char
     return ChargingRepository(settings.mongo_uri, settings.mongo_db)
 
 
-app = FastAPI(title="free5GC Charging Portal", version="0.3.15")
+app = FastAPI(title="free5GC Charging Portal", version="0.3.16")
 
 
 def format_bytes(value: int | str | None) -> str:

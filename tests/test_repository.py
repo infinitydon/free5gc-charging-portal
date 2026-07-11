@@ -186,3 +186,31 @@ def test_user_account_used_bytes_sums_full_usage_ledger(monkeypatch):
 
     assert account["usedBytes"] == 1830
     assert len(account["recentUsage"]) == 8
+
+
+def test_user_account_clamps_negative_remaining_balance(monkeypatch):
+    monkeypatch.setattr("app.repository.MongoClient", mongomock.MongoClient)
+    repo = ChargingRepository("mongodb://unused", "free5gc")
+    repo.db[CHARGING_DATA_COLL].insert_one(
+        {"ueId": "imsi-001", "ratingGroup": 10, "quota": "-839850", "chargingMethod": "Online", "dnn": "internet", "filter": "any"}
+    )
+
+    account = repo.user_account("imsi-001")
+
+    assert account["remainingBytes"] == 0
+    assert account["rawRemainingBytes"] == -839850
+    assert account["overageBytes"] == 839850
+
+
+def test_subscriber_summary_clamps_negative_remaining_balance(monkeypatch):
+    monkeypatch.setattr("app.repository.MongoClient", mongomock.MongoClient)
+    repo = ChargingRepository("mongodb://unused", "free5gc")
+    repo.db[CHARGING_DATA_COLL].insert_one(
+        {"ueId": "imsi-001", "ratingGroup": 10, "quota": "-839850", "chargingMethod": "Online", "dnn": "internet", "filter": "any"}
+    )
+
+    summary = repo.subscriber_summaries()[0]
+
+    assert summary["remainingBytes"] == 0
+    assert summary["rawRemainingBytes"] == -839850
+    assert summary["overageBytes"] == 839850
